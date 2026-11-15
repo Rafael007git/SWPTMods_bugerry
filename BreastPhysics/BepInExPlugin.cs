@@ -286,7 +286,24 @@ namespace BreastPhysics
 			}
 		}
 
-		[HarmonyPatch(typeof(Jiggle), "Start")]
+        private static bool dumpedPectoral = false;
+
+        private static void DumpVanillaJiggle(Jiggle jiggle)
+        {
+            if (dumpedPectoral) return;
+            dumpedPectoral = true;
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"[JiggleDump] Vanilla settings on bone: {jiggle.name}");
+            foreach (var field in typeof(Jiggle).GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                sb.AppendLine($"  {field.FieldType.Name} {field.Name} = {field.GetValue(jiggle)}");
+            }
+            context.Logger.LogInfo(sb.ToString());
+        }
+
+
+        [HarmonyPatch(typeof(Jiggle), "Start")]
 		public static class Jiggle_Start_Patch
 		{
 			public static MethodBase TargetMethod()
@@ -300,7 +317,18 @@ namespace BreastPhysics
 				var cc = __instance.GetComponentInParent<CharacterCustomization>();
 				if (cc && __instance.name.EndsWith("Pectoral"))
 				{
-					foreach (var name in context.names)
+                    context.Logger.LogInfo(
+						$"[JiggleDump] {__instance.name} | " +
+						$"Hinge={__instance.Hinge}, HingeAngle={__instance.HingeAngle} | " +
+						$"UseAngleLimit={__instance.UseAngleLimit}, AngleLimit={__instance.AngleLimit} | " +
+						$"UseSoftLimit={__instance.UseSoftLimit}, SoftInf={__instance.SoftLimitInfluence}, SoftStr={__instance.SoftLimitStrength} | " +
+						$"Spring={__instance.SpringStrength}, Damp={__instance.Dampening} | " +
+						$"UseCoM={__instance.UseCenterOfMass}, CoM={__instance.CenterOfMass}, CoMInertia={__instance.CenterOfMassInertia} | " +
+						$"RotInertia={__instance.RotationInertia}, Gravity={__instance.Gravity} | " +
+						$"BlendOrig={__instance.BlendToOriginalRotation}, UpdatePhysics={__instance.UpdateWithPhysics}"
+					);
+
+                    foreach (var name in context.names)
 					{
 						if (context.values.TryGetValue($"{cc.name}/{name}", out float val))
 						{
