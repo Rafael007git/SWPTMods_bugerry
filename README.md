@@ -21,7 +21,7 @@ Built upon the original **Breast Physics** mod by **bugerry**, this version intr
 * **Linear Translational Inertia (Mass-Spring-Damper):** Simulates a virtual world-space mass attached to `chestLower` to generate smooth vertical bounce during steps, jumps, and sudden torso movements.
 * **Hybrid Upward Blendshape Deformation (`Morph 74`):** Dynamically drives the custom upward rotation blendshape (`breast rotation updown`) during upward bounce and inverted poses for natural volume rounding without harsh bone creasing.
   * The previously unused morph `74- Genesis8Female__mine breast rotation updown` was found in the game model.
-  * Smart Anti-Clipping Protection (`OnlyWhenTopless`):** Automatically disables blendshape deformation whenever `armor` or `bra` slots are equipped on the character, preventing mesh clipping through tops and lingerie.
+  * Smart Anti-Clipping Protection (`OnlyWhenTopless`): Automatically disables blendshape deformation whenever `armor` or `bra` slots are equipped on the character, preventing mesh clipping through tops and lingerie.
 
 ---
 
