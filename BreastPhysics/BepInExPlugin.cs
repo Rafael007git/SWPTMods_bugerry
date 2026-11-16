@@ -10,7 +10,7 @@ using Assets.DuckType.Jiggle;
 
 namespace BreastPhysics
 {
-    [BepInPlugin("bugerry.BreastPhysics", "Breast Physics", "1.2.1")]
+    [BepInPlugin("bugerry.BreastPhysics", "Breast Physics", "1.3.0")]
     public partial class BepInExPlugin : BaseUnityPlugin
     {
         private static BepInExPlugin context;
