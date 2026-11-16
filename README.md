@@ -1,6 +1,6 @@
 # Breast Physics (Enhanced Gravity & Linear Inertia Edition)
 
-An extended **BepInEx** physics plugin for She Will Punish Them game utilizing `DuckType.Jiggle` and Genesis 8F character rig.
+An extended **BepInEx** physics plugin for the game **She Will Punish Them** utilizing `DuckType.Jiggle` and Genesis 8F character rig.
 
 Built upon the original **Breast Physics** mod by **bugerry**, this version introduces a secondary physics layer that adds **true world-space gravity**, **linear translational inertia**, and **dynamic upward blendshape deformation** while preserving the vanilla "hinge with adjusting rotation axis" response.
 
@@ -16,12 +16,12 @@ Built upon the original **Breast Physics** mod by **bugerry**, this version intr
 
 ### New Physics Extensions (Gravity & Linear Inertia Addon)
 * **Gravity with Standing Pose Compensation (`Vector3.down + chest.up`):**
-  * Cancels out downward gravity while standing upright so the pre-sculpted mesh retains its intended height and shape.
   * Smoothly pulls and rotates the breasts along the world gravity vector when leaning forward, tilting sideways, lying down, or in inverted poses.
+  * Cancels out downward gravity while standing upright so the pre-sculpted mesh retains its intended height and shape.
 * **Linear Translational Inertia (Mass-Spring-Damper):** Simulates a virtual world-space mass attached to `chestLower` to generate smooth vertical bounce during steps, jumps, and sudden torso movements.
 * **Hybrid Upward Blendshape Deformation (`Morph 74`):** Dynamically drives the custom upward rotation blendshape (`breast rotation updown`) during upward bounce and inverted poses for natural volume rounding without harsh bone creasing.
-* **Smart Anti-Clipping Protection (`OnlyWhenTopless`):** Automatically disables blendshape deformation whenever `armor` or `bra` slots are equipped on the character, preventing mesh clipping through tops and lingerie.
-* **Multi-Character Support & High Performance:** Works seamlessly across the player character, companions, and NPCs with negligible CPU overhead (< 0.002 ms per frame, zero GC allocations).
+  * The previously unused morph `74- Genesis8Female__mine breast rotation updown` was found in the game model.
+  * Smart Anti-Clipping Protection (`OnlyWhenTopless`):** Automatically disables blendshape deformation whenever `armor` or `bra` slots are equipped on the character, preventing mesh clipping through tops and lingerie.
 
 ---
 
@@ -89,5 +89,4 @@ Built upon the original **Breast Physics** mod by **bugerry**, this version intr
 
 * **[bugerry87](https://github.com/bugerry87)** — Original creator of the **Breast Physics** mod, UI slider integration, preset persistence system, and `DuckType.Jiggle` scheduling patches.
 * **BepInEx & Harmony Teams** — For providing the essential modding framework and runtime patching tools for Unity.
-* **Google Gemini** — Discussing architecture of this project and composing the majority of new C# code.
-
+* **Google Gemini** — Assisting with the physics architecture and C# implementation.
