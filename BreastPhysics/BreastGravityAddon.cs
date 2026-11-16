@@ -18,12 +18,19 @@ namespace BreastPhysics
         public static ConfigEntry<float> MaxAngleSide;
         public static ConfigEntry<bool> CompensateStandingPose;
 
+        // Для морфа "74- Genesis8Female__mine breast rotation updown"
+        public static ConfigEntry<bool> EnableMorph74;
+        public static ConfigEntry<float> Morph74Sensitivity;
+        public static ConfigEntry<float> Morph74MaxDelta;
+        public static ConfigEntry<bool> OnlyWhenTopless;
+
         private class BoneState
         {
             public Transform Chest;
             public Vector3 BobWorldPos;
             public Vector3 BobWorldVel;
             public bool Initialized;
+            public float LastAnglePitch;
         }
 
         private static readonly Dictionary<Jiggle, BoneState> _states = new Dictionary<Jiggle, BoneState>();
@@ -45,11 +52,11 @@ namespace BreastPhysics
             MaxAngleSide = config.Bind("GravityAddon", "MaxAngleSide", 5.0f, "Макс. боковой сдвиг от гравитации (град.)");
 
             CompensateStandingPose = config.Bind("GravityAddon", "CompensateStandingPose", true, "Вычитать гравитацию позы стоя (чтобы грудь не опускалась ниже исходного меша, когда персонаж стоит прямо)");
-        }
 
-        public static void Unregister(Jiggle jiggle)
-        {
-            if (jiggle != null) _states.Remove(jiggle);
+            EnableMorph74 = config.Bind("Morph74Experiment", "EnableMorph74", true, "Подключить 74-й блендшейп при движении груди вверх");
+            Morph74Sensitivity = config.Bind("Morph74Experiment", "Morph74Sensitivity", 4.0f, "Чувствительность морфа к углу подъёма (единиц веса на 1 градус)");
+            Morph74MaxDelta = config.Bind("Morph74Experiment", "Morph74MaxDelta", 45.0f, "Максимальное увеличение веса морфа от базового (например, от 50 до 95)");
+            OnlyWhenTopless = config.Bind("Morph74Experiment", "OnlyWhenTopless", true, "Использовать Morph74 только когда сняты armor и bra (защита от клиппинга)");
         }
 
         public static void ProcessBone(Jiggle jiggle, float dt)
@@ -119,11 +126,104 @@ namespace BreastPhysics
             float deltaY = (localCurrentDir.y - localRestDir.y) / LeverLength;
             float deltaX = (localCurrentDir.x - localRestDir.x) / LeverLength;
 
-            float anglePitch = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(deltaY, -0.9f, 0.9f)) * Mathf.Rad2Deg, -MaxAngleDown.Value, MaxAngleUp.Value);
+            float rawAnglePitch = Mathf.Asin(Mathf.Clamp(deltaY, -0.9f, 0.9f)) * Mathf.Rad2Deg;
+            float anglePitch = Mathf.Clamp(rawAnglePitch, -MaxAngleDown.Value, MaxAngleUp.Value);
             float angleYaw = Mathf.Clamp(Mathf.Asin(Mathf.Clamp(deltaX, -0.9f, 0.9f)) * Mathf.Rad2Deg, -MaxAngleSide.Value, MaxAngleSide.Value);
 
             Quaternion chestSpaceDelta = Quaternion.Euler(-anglePitch, angleYaw, 0f);
             bone.rotation = chest.rotation * chestSpaceDelta * Quaternion.Inverse(chest.rotation) * bone.rotation;
+
+            // Передаём rawAnglePitch (не обрезанный лимитом MaxAngleUp), чтобы морф плавно работал на весь диапазон
+            UpdateCharacterMorph74(jiggle, rawAnglePitch);
         }
+
+        private static readonly Dictionary<SkinnedMeshRenderer, float> _baseMorph74 = new Dictionary<SkinnedMeshRenderer, float>();
+        private const int TargetMorphIndex = 74;
+
+        // Обновление Морфа-74
+        private static void UpdateCharacterMorph74(Jiggle jiggle, float anglePitch)
+        {
+            if (EnableMorph74 == null || !EnableMorph74.Value) return;
+            if (jiggle.name != "lPectoral") return; // Считаем один раз на персонажа за кадр
+
+            var cc = jiggle.GetComponentInParent<CharacterCustomization>();
+            if (cc == null || cc.body == null || cc.body.sharedMesh == null) return;
+
+            SkinnedMeshRenderer bodySmr = cc.body;
+            if (bodySmr.sharedMesh.blendShapeCount <= TargetMorphIndex) return;
+
+            // Кэшируем исходный вес морфа из кастомизации персонажа (обычно 50)
+            if (!_baseMorph74.TryGetValue(bodySmr, out float baseWeight))
+            {
+                baseWeight = bodySmr.GetBlendShapeWeight(TargetMorphIndex);
+                _baseMorph74[bodySmr] = baseWeight;
+            }
+
+            // Если надеты armor или bra — возвращаем базовый вес и не трогаем морф (защита от клиппинга)
+            if (OnlyWhenTopless != null && OnlyWhenTopless.Value && IsTopCovered(cc))
+            {
+                if (!Mathf.Approximately(bodySmr.GetBlendShapeWeight(TargetMorphIndex), baseWeight))
+                {
+                    bodySmr.SetBlendShapeWeight(TargetMorphIndex, baseWeight);
+                }
+                return;
+            }
+
+            // Реагируем только на положительный угол (подъём вверх)
+            float upwardAngle = Mathf.Max(0f, anglePitch);
+            float deltaWeight = Mathf.Clamp(upwardAngle * Morph74Sensitivity.Value, 0f, Morph74MaxDelta.Value);
+            float finalWeight = Mathf.Clamp(baseWeight + deltaWeight, 0f, 100f);
+
+            bodySmr.SetBlendShapeWeight(TargetMorphIndex, finalWeight);
+
+            // Точечно синхронизируем 74-й индекс с оставшимися рендерерами (на случай украшений/аксессуаров)
+            var appeal = cc.GetComponent<Appeal>();
+            if (appeal != null && appeal.allRenderers != null)
+            {
+                foreach (var renderer in appeal.allRenderers)
+                {
+                    if (renderer != null && renderer.sharedMesh != null && renderer.sharedMesh.blendShapeCount > TargetMorphIndex)
+                    {
+                        renderer.SetBlendShapeWeight(TargetMorphIndex, finalWeight);
+                    }
+                }
+            }
+        }
+
+        public static void Unregister(Jiggle jiggle)
+        {
+            if (jiggle == null) return;
+
+            _states.Remove(jiggle);
+
+            // Находим меш тела персонажа и удаляем его из кэша базовых весов
+            var cc = jiggle.GetComponentInParent<CharacterCustomization>();
+            if (cc != null && cc.body != null)
+            {
+                _baseMorph74.Remove(cc.body);
+            }
+
+            // На случай, если CharacterCustomization уже уничтожен раньше кости — чистим все мёртвые ссылки
+            var deadKeys = new List<SkinnedMeshRenderer>();
+            foreach (var kvp in _baseMorph74)
+            {
+                if (kvp.Key == null) deadKeys.Add(kvp.Key);
+            }
+            foreach (var key in deadKeys)
+            {
+                _baseMorph74.Remove(key);
+            }
+        }
+
+        private static bool IsTopCovered(CharacterCustomization cc)
+        {
+            if (cc == null) return false;
+
+            bool armorActive = cc.armor != null && cc.armor.gameObject.activeInHierarchy;
+            bool braActive = cc.bra != null && cc.bra.gameObject.activeInHierarchy;
+
+            return armorActive || braActive;
+        }
+
     }
 }
